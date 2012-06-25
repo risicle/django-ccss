@@ -14,10 +14,27 @@ from django.core.management.base import BaseCommand, CommandError
 from django.template import Context
 from django.template.loader import render_to_string
 from django.template.loaders.app_directories import app_template_dirs
+from django.core.exceptions import ImproperlyConfigured
+from django.utils.importlib import import_module
 
 from ... import conf
 from ...contrib.clevercss import convert
 
+def get_context_processors ():
+    processors = []
+    for path in conf.CCSS_TEMPLATE_CONTEXT_PROCESSORS:
+        i = path.rfind('.')
+        module, attr = path[:i], path[i+1:]
+        try:
+            mod = import_module(module)
+        except ImportError, e:
+            raise ImproperlyConfigured('Error importing context processor module %s: "%s"' % (module, e))
+        try:
+            func = getattr(mod, attr)
+        except AttributeError:
+            raise ImproperlyConfigured('Module "%s" does not define a "%s" callable context processor' % (module, attr))
+        processors.append(func)
+    return tuple(processors)
 
 class Command(BaseCommand):
     """
@@ -97,17 +114,24 @@ class Command(BaseCommand):
         if verbosity > 1 and filenames:
             print "Processing templates..."
 
+        processors = get_context_processors ()
+
         for entry in filenames:
             # Get path names for input and output files
             base = ".".join(entry.split(".")[:-1])
             infile = os.path.join(conf.CCSS_PATH, base + ".ccss")
             outfile = os.path.join(outpath, base + ".css")
 
+            # build up a context from our CCSS_TEMPLATE_CONTEXT_PROCESSORS
+            context = {}
+            for processor in processors:
+                context.update ( processor ( None ) )
+
             # Make sure the output path exists, then write the generated CSS
             if not os.path.exists(os.path.dirname(outfile)):
                 os.makedirs(os.path.dirname(outfile))
 
-            open(outfile, "w").write(convert(render_to_string(infile)))
+            open(outfile, "w").write(convert(render_to_string(infile, context)))
 
             if verbosity > 0:
                 print "Generated %s.css" % base

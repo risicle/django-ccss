@@ -20,3 +20,11 @@ from django.conf import settings
 """
 CSS_PATH = getattr(settings, "CSS_PATH", "styles")
 CCSS_PATH = getattr(settings, "CCSS_PATH", CSS_PATH )
+
+"""
+    CCSS_TEMPLATE_CONTEXT_PROCESSORS will be executed like regular context
+    processors but with a None argument in place of the request,
+    so regular context processors that don't use the request argument
+    will "just work".
+"""
+CCSS_TEMPLATE_CONTEXT_PROCESSORS = getattr(settings, "CCSS_TEMPLATE_CONTEXT_PROCESSORS", [])
